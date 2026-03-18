@@ -84,10 +84,8 @@
 </head>
 <body>
 
-    <!-- 画面全体のフラッシュエフェクト (身代わり発動時) -->
     <div id="flash-overlay" class="absolute inset-0 bg-white z-40 hidden opacity-0 transition-opacity duration-100 pointer-events-none"></div>
 
-    <!-- ★追加: タイトル画面 -->
     <div id="title-screen" class="absolute inset-0 flex flex-col items-center justify-center z-30 transition-opacity duration-500 bg-gradient-to-b from-transparent to-black/80">
         <h1 class="text-[120px] font-black italic tracking-tighter text-white drop-shadow-[0_5px_15px_rgba(0,255,255,0.8)] leading-none" style="-webkit-text-stroke: 3px cyan;">SUBWAY</h1>
         <h1 class="text-[100px] font-black italic tracking-tighter text-yellow-400 drop-shadow-[0_5px_15px_rgba(255,215,0,0.8)] leading-none mb-12" style="-webkit-text-stroke: 3px #b45309;">RUNNER</h1>
@@ -96,7 +94,6 @@
             TAP TO PLAY
         </button>
 
-        <!-- ★追加: タイトル画面のショップボタン -->
         <button id="title-shop-btn" class="mt-8 group relative bg-indigo-900 text-cyan-300 px-12 py-4 rounded-full font-bold text-2xl hover:bg-indigo-800 hover:text-white transition-all border border-cyan-500/50 pointer-events-auto shadow-[0_0_20px_rgba(0,255,255,0.3)]">
             <span class="relative z-10">🛒 SHOP</span>
         </button>
@@ -106,7 +103,6 @@
         </div>
     </div>
 
-    <!-- ★修正: インゲームUIを一つのコンテナでまとめる -->
     <div id="ingame-ui" class="absolute inset-0 pointer-events-none hidden z-10">
         <div id="score-container" class="absolute top-8 left-1/2 -translate-x-1/2 z-10 text-white text-center pointer-events-none">
             <div class="text-sm uppercase tracking-[0.3em] font-bold text-cyan-400" style="text-shadow: 0 2px 4px rgba(0,0,0,0.8);">Distance</div>
@@ -146,11 +142,8 @@
             <div id="warn-2" class="w-16 h-16 bg-red-600/90 rounded-full flex items-center justify-center text-white font-black text-4xl opacity-0 transition-opacity duration-150 border-4 border-red-300 shadow-[0_0_30px_rgba(255,0,0,1)]">!</div>
         </div>
 
-        <div id="powerup-ui" class="absolute top-28 left-8 pointer-events-none hidden flex-col items-start gap-1 z-20">
-            <div id="powerup-name" class="text-2xl font-black italic tracking-wider uppercase drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">MAGNET</div>
-            <div class="w-48 h-3 bg-black/60 rounded-full border border-white/20 overflow-hidden shadow-lg">
-                <div id="powerup-bar" class="h-full w-full transition-all duration-100"></div>
-            </div>
+        <div id="powerups-container" class="absolute top-28 left-8 pointer-events-none flex flex-col items-start gap-2 z-20">
+            <!-- JSで動的にパワーアップUIを追加 -->
         </div>
 
         <div id="board-ui" class="absolute bottom-[100px] left-1/2 -translate-x-1/2 pointer-events-none hidden flex-col items-center gap-1 z-20 w-64">
@@ -179,7 +172,6 @@
                 </div>
             </div>
 
-            <!-- ★修正: HOMEボタンを追加 -->
             <div class="flex gap-4">
                 <button id="home-btn" class="bg-gray-800 text-white px-8 py-4 rounded-full font-bold text-xl hover:bg-gray-700 transition-colors border border-gray-600">
                     🏠 HOME
@@ -225,7 +217,6 @@
     <script type="module">
         import * as THREE from 'three';
 
-        // ★修正: double_coin を追加し、出現確率を高くするため配列に複数入れる
         const POWER_UPS = ['magnet', 'sneakers', 'pogo', 'jetpack', 'board', 'double_coin', 'double_coin', 'double_coin'];
 
         // --- Data & Storage ---
@@ -242,7 +233,9 @@
             { id: 'neon_green', name: 'Neon Green', price: 50, color: 0x00ff00, type: 'standard' },
             { id: 'cyber_blue', name: 'Cyber Blue', price: 100, color: 0x00ffff, type: 'standard' },
             { id: 'gold', name: 'Pure Gold', price: 250, color: 0xffd700, emissive: 0xaa8800, type: 'standard' },
-            { id: 'gradient', name: 'Sunset Gradient', price: 800, type: 'gradient' }
+            { id: 'gradient', name: 'Sunset Gradient', price: 800, type: 'gradient' },
+            // ★追加: 新規アバター「Planaria（プラナリア風）」
+            { id: 'planaria', name: 'Planaria Avatar', price: 2000, type: 'custom_model' }
         ];
 
         let totalCoins = parseInt(localStorage.getItem('runner_coins')) || 0;
@@ -250,7 +243,6 @@
         let currentCostumeId = localStorage.getItem('runner_current_costume') || 'default';
         let sessionCoins = 0; 
         
-        // ★追加: ハイスコア
         let highScore = parseInt(localStorage.getItem('runner_highscore')) || 0;
         document.getElementById('title-highscore').innerText = highScore;
 
@@ -264,11 +256,10 @@
             localStorage.setItem('runner_costumes', JSON.stringify(unlockedCostumes));
             localStorage.setItem('runner_current_costume', currentCostumeId);
             localStorage.setItem('runner_boards', hoverboards);
-            localStorage.setItem('runner_highscore', highScore); // ★追加
+            localStorage.setItem('runner_highscore', highScore); 
         }
 
         // --- Configuration & State ---
-        // ★追加: 状態変数にタイトルとクラッシュ演出を追加
         let gameState = 'title'; // 'title', 'playing', 'crashing', 'gameover'
         let score = 0;
         let gameSpeed = 0.5; 
@@ -282,7 +273,6 @@
         let nextChunkZ = -50; 
         let nextSpecialChunkZ = -500; 
 
-        // 吹っ飛び演出用変数
         let crashTimer = 0;
         let crashVelocityY = 0;
         let crashVelocityZ = 0;
@@ -291,26 +281,21 @@
         let crashRotationY = 0;
         let crashRotationZ = 0;
 
-        // Physics State
         let isGrounded = true; 
         let velocityY = 0;
         const GRAVITY = -0.022; 
         let isSliding = false;
         let slideTimer = 0;
 
-        // Skill State (Hoverboard)
         let isHoverboarding = false;
         let hoverboardTimer = 0;
         const HOVERBOARD_DURATION = 30.0;
 
-        // Post-Damage Invincibility
         let isInvincible = false;
         let invincibleTimer = 0;
         const POST_DAMAGE_INVINCIBLE = 2.0; 
 
-        // PowerUp State
-        let currentPowerUp = null; 
-        let powerUpTimer = 0;
+        let activePowerUps = {}; 
         let isJetpackFlying = false;
 
         // --- Three.js Init ---
@@ -369,9 +354,29 @@
         playerGroup.add(playerMeshGroup);
         scene.add(playerGroup);
 
-        const playerBody = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.2, 1.0));
-        playerBody.position.y = 0.6;
-        playerMeshGroup.add(playerBody);
+        // ★修正: デフォルトのブロック型ボディ
+        const playerStandardBody = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.2, 1.0));
+        playerStandardBody.position.y = 0.6;
+        playerMeshGroup.add(playerStandardBody);
+
+        // ★追加: オリジナル「プラナリア風」アバターボディ
+        const playerPlanariaBody = new THREE.Group();
+        const pBodyMat = new THREE.MeshStandardMaterial({ color: 0x99ffff, metalness: 0.1, roughness: 0.3, emissive: 0x225555 });
+        const pBodyMesh = new THREE.Mesh(new THREE.CapsuleGeometry(0.5, 0.4, 4, 16), pBodyMat);
+        pBodyMesh.position.y = 0.7;
+        pBodyMesh.scale.set(1.2, 1.0, 0.8); // 少し平べったく
+        playerPlanariaBody.add(pBodyMesh);
+        
+        // つぶらな瞳
+        const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), eyeMat);
+        eyeL.position.set(-0.25, 1.0, 0.42);
+        const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), eyeMat);
+        eyeR.position.set(0.25, 1.0, 0.42);
+        playerPlanariaBody.add(eyeL, eyeR);
+        
+        playerPlanariaBody.visible = false; // デフォルトは非表示
+        playerMeshGroup.add(playerPlanariaBody);
 
         const playerHoverboard = new THREE.Group();
         const boardMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, metalness: 0.4, roughness: 0.2 });
@@ -400,20 +405,28 @@
         playerJetpack.visible = false;
         playerMeshGroup.add(playerJetpack);
 
+        // ★修正: コスチューム適用時にモデルの形状を切り替える
         function applyCostume(id) {
             const costume = COSTUMES.find(c => c.id === id) || COSTUMES[0];
             currentCostumeId = costume.id;
             saveGameData();
 
-            let targetMat;
-            if (costume.type === 'gradient') {
-                targetMat = new THREE.MeshStandardMaterial({ map: gradientTexture, emissive: 0x222222 });
+            if (costume.type === 'custom_model' && costume.id === 'planaria') {
+                playerStandardBody.visible = false;
+                playerPlanariaBody.visible = true;
             } else {
-                targetMat = new THREE.MeshStandardMaterial({ 
-                    color: costume.color, emissive: costume.emissive || costume.color, emissiveIntensity: 0.8 
-                });
+                playerStandardBody.visible = true;
+                playerPlanariaBody.visible = false;
+                let targetMat;
+                if (costume.type === 'gradient') {
+                    targetMat = new THREE.MeshStandardMaterial({ map: gradientTexture, emissive: 0x222222 });
+                } else {
+                    targetMat = new THREE.MeshStandardMaterial({ 
+                        color: costume.color, emissive: costume.emissive || costume.color, emissiveIntensity: 0.8 
+                    });
+                }
+                playerStandardBody.material = targetMat;
             }
-            playerBody.material = targetMat;
         }
         applyCostume(currentCostumeId); 
 
@@ -494,7 +507,6 @@
                 boardMesh.rotation.z = Math.PI / 4;
                 meshGroup.add(boardMesh);
             } else if (type === 'double_coin') { 
-                // ★追加: 2倍コインアイテム（星型を表現）
                 const mat = new THREE.MeshStandardMaterial({ color: 0xffa500, metalness: 0.6, roughness: 0.2, emissive: 0xaa5500 });
                 const star1 = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.2), mat);
                 const star2 = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.2), mat);
@@ -512,6 +524,34 @@
             group.position.set(laneX, yPos, zPos);
             scene.add(group);
             itemsList.push({ group: group, mesh: meshGroup, type: type, collected: false });
+        }
+
+        // --- PowerUp UI Update ---
+        function updatePowerUpUI() {
+            const container = document.getElementById('powerups-container');
+            container.innerHTML = '';
+            
+            for (const [type, timer] of Object.entries(activePowerUps)) {
+                if (timer > 0) {
+                    let name = ''; let colorClass = ''; let barColorClass = '';
+                    let maxTime = 10.0;
+                    if (type === 'magnet') { name = 'MAGNET'; colorClass = 'text-red-500'; barColorClass = 'bg-red-500 shadow-[0_0_10px_rgba(255,0,0,0.8)]'; }
+                    else if (type === 'sneakers') { name = 'SNEAKERS'; colorClass = 'text-blue-400'; barColorClass = 'bg-blue-500 shadow-[0_0_10px_rgba(0,0,255,0.8)]'; }
+                    else if (type === 'jetpack') { name = 'JETPACK'; colorClass = 'text-gray-300'; barColorClass = 'bg-gray-400 shadow-[0_0_10px_rgba(255,255,255,0.8)]'; }
+                    else if (type === 'double_coin') { name = '2X COINS'; colorClass = 'text-yellow-400'; barColorClass = 'bg-yellow-400 shadow-[0_0_10px_rgba(255,215,0,0.8)]'; maxTime = 30.0; }
+
+                    const pct = Math.max(0, (timer / maxTime) * 100);
+                    const el = document.createElement('div');
+                    el.className = 'flex flex-col items-start gap-1';
+                    el.innerHTML = `
+                        <div class="text-2xl font-black italic tracking-wider uppercase drop-shadow-[0_2px_2px_rgba(0,0,0,1)] ${colorClass}">${name}</div>
+                        <div class="w-48 h-3 bg-black/60 rounded-full border border-white/20 overflow-hidden shadow-lg">
+                            <div class="h-full transition-all duration-100 ${barColorClass}" style="width: ${pct}%"></div>
+                        </div>
+                    `;
+                    container.appendChild(el);
+                }
+            }
         }
 
         // --- PowerUp Activation ---
@@ -550,41 +590,30 @@
                 const dropFrame = Math.floor(flyFrames * 0.7);
                 const itemZ = playerGroup.position.z - (dropFrame * gameSpeed); 
                 const itemY = Math.max(1.0, trajectory[dropFrame] - 0.2);
-                const dropItems = ['magnet', 'sneakers', Math.random() > 0.5 ? 'magnet' : 'sneakers'].sort(() => Math.random() - 0.5);
+                const dropItems = ['magnet', 'sneakers', Math.random() > 0.5 ? 'double_coin' : 'sneakers'].sort(() => Math.random() - 0.5);
                 
                 createItem(LANES[0], itemZ, dropItems[0], itemY);
                 createItem(LANES[1], itemZ, dropItems[1], itemY);
                 createItem(LANES[2], itemZ, dropItems[2], itemY);
 
             } else {
-                currentPowerUp = type;
-                powerUpTimer = 10.0; 
+                let duration = 10.0;
+                if (type === 'double_coin') duration = 30.0;
                 
-                const ui = document.getElementById('powerup-ui');
-                ui.classList.remove('hidden'); ui.classList.add('flex');
-                
-                const nameEl = document.getElementById('powerup-name');
-                const barEl = document.getElementById('powerup-bar');
-                
-                playerSneakers.visible = false;
-                playerJetpack.visible = false;
+                activePowerUps[type] = duration;
+                updatePowerUpUI();
 
-                if (type === 'magnet') { 
-                    nameEl.innerText = 'MAGNET'; 
-                    nameEl.className = 'text-2xl font-black italic tracking-wider uppercase drop-shadow-[0_2px_2px_rgba(0,0,0,1)] text-red-500'; 
-                    barEl.className = 'h-full w-full transition-all duration-100 bg-red-500 shadow-[0_0_10px_rgba(255,0,0,0.8)]';
-                }
                 if (type === 'sneakers') { 
-                    nameEl.innerText = 'SNEAKERS'; 
-                    nameEl.className = 'text-2xl font-black italic tracking-wider uppercase drop-shadow-[0_2px_2px_rgba(0,0,0,1)] text-blue-400'; 
-                    barEl.className = 'h-full w-full transition-all duration-100 bg-blue-500 shadow-[0_0_10px_rgba(0,0,255,0.8)]';
                     playerSneakers.visible = true;
                 }
                 if (type === 'jetpack') { 
-                    nameEl.innerText = 'JETPACK'; 
-                    nameEl.className = 'text-2xl font-black italic tracking-wider uppercase drop-shadow-[0_2px_2px_rgba(0,0,0,1)] text-gray-300'; 
-                    barEl.className = 'h-full w-full transition-all duration-100 bg-gray-400 shadow-[0_0_10px_rgba(255,255,255,0.8)]';
                     playerJetpack.visible = true; 
+                    isJetpackFlying = true;
+                    
+                    const estFrames = 10.0 * 60; 
+                    const estCurrentSpeed = gameSpeed * 2.0; 
+                    const flyDist = estCurrentSpeed * estFrames;
+                    const zStep = flyDist / 200;
                     
                     let jetpackZ = playerGroup.position.z - 60;
                     for (let i = 0; i < 200; i++) {
@@ -601,21 +630,15 @@
                         lanesToSpawn.forEach(laneIdx => {
                             createCoin(LANES[laneIdx], jetpackZ, 12.0); 
                         });
-                        jetpackZ -= 4.5;
+                        jetpackZ -= zStep;
                     }
 
-                    const finalItemZ = jetpackZ - 15; 
-                    const endItems = ['magnet', 'sneakers', Math.random() > 0.5 ? 'magnet' : 'sneakers'].sort(() => Math.random() - 0.5);
+                    const finalItemZ = playerGroup.position.z - flyDist + (estCurrentSpeed * 90); 
+                    const endItems = ['magnet', 'sneakers', Math.random() > 0.5 ? 'double_coin' : 'board'].sort(() => Math.random() - 0.5);
                     
                     createItem(LANES[0], finalItemZ, endItems[0], 12.0);
                     createItem(LANES[1], finalItemZ, endItems[1], 12.0);
                     createItem(LANES[2], finalItemZ, endItems[2], 12.0);
-                }
-                // ★追加: 2倍コインのUI表示
-                if (type === 'double_coin') { 
-                    nameEl.innerText = '2X COINS'; 
-                    nameEl.className = 'text-2xl font-black italic tracking-wider uppercase drop-shadow-[0_2px_2px_rgba(0,0,0,1)] text-yellow-400'; 
-                    barEl.className = 'h-full w-full transition-all duration-100 bg-yellow-400 shadow-[0_0_10px_rgba(255,215,0,0.8)]';
                 }
             }
         }
@@ -1063,7 +1086,7 @@
             }
             
             if (e.key === 'ArrowUp' && isGrounded && !isJetpackFlying) {
-                velocityY = (currentPowerUp === 'sneakers' || isHoverboarding) ? 0.65 : 0.42; 
+                velocityY = (activePowerUps['sneakers'] > 0 || isHoverboarding) ? 0.65 : 0.42; 
                 isGrounded = false;
                 if (isSliding) {
                     isSliding = false;
@@ -1084,7 +1107,6 @@
         });
 
         // --- Game Logic ---
-        // ★追加: タイトル画面の初期化関数
         function initTitle() {
             gameState = 'title';
             
@@ -1101,7 +1123,6 @@
             coinsList.forEach(c => scene.remove(c.mesh)); coinsList = [];
             itemsList.forEach(item => scene.remove(item.group)); itemsList = [];
             
-            // タイトル画面用の背景オブジェ
             createTrain(LANES[0], -15, false, false, 0);
             createTrain(LANES[2], -25, true, false, 0);
             createWall(LANES[1], -10, 'slide');
@@ -1130,7 +1151,7 @@
             isInvincible = false;
             invincibleTimer = 0;
             playerMeshGroup.visible = true;
-            playerMeshGroup.rotation.set(0, 0, 0); // 吹っ飛び後の回転リセット
+            playerMeshGroup.rotation.set(0, 0, 0); 
             
             isHoverboarding = false;
             playerHoverboard.visible = false;
@@ -1152,18 +1173,15 @@
             createCoinsInLane(LANES[1], -20, 20, 0.6, 5); 
 
             itemsList.forEach(item => scene.remove(item.group)); itemsList = [];
-            currentPowerUp = null;
-            powerUpTimer = 0;
+            activePowerUps = {};
+            updatePowerUpUI();
             isJetpackFlying = false;
             playerSneakers.visible = false;
             playerJetpack.visible = false;
-            document.getElementById('powerup-ui').classList.add('hidden');
-            document.getElementById('powerup-ui').classList.remove('flex');
 
             document.getElementById('game-over-screen').classList.add('hidden');
             document.getElementById('game-over-screen').classList.remove('flex');
             
-            // UIの切り替え
             document.getElementById('title-screen').classList.add('opacity-0', 'pointer-events-none');
             setTimeout(() => document.getElementById('title-screen').classList.add('hidden'), 500);
             document.getElementById('ingame-ui').classList.remove('hidden');
@@ -1183,7 +1201,6 @@
             requestAnimationFrame(animate);
             const delta = clock.getDelta();
 
-            // ★追加: タイトル画面のアニメーション
             if (gameState === 'title') {
                 camera.position.x = Math.sin(clock.elapsedTime * 0.3) * 6;
                 camera.position.z = 8 + Math.cos(clock.elapsedTime * 0.3) * 4;
@@ -1196,13 +1213,12 @@
                 return;
             }
 
-            // ★追加: ゲームオーバー時の吹っ飛び演出
             if (gameState === 'crashing') {
                 crashTimer -= delta;
                 
                 playerGroup.position.x += crashVelocityX;
                 playerGroup.position.y += crashVelocityY;
-                playerGroup.position.z += crashVelocityZ; // カメラに向かって飛んでくる
+                playerGroup.position.z += crashVelocityZ; 
                 
                 crashVelocityY += GRAVITY * 1.5; 
                 
@@ -1210,7 +1226,6 @@
                 playerMeshGroup.rotation.y += crashRotationY;
                 playerMeshGroup.rotation.z += crashRotationZ;
                 
-                // カメラは引いてプレイヤーを追う
                 camera.position.y += (10.0 - camera.position.y) * 0.1;
                 camera.position.z += (15.0 - camera.position.z) * 0.1;
                 camera.lookAt(playerGroup.position.x * 0.5, playerGroup.position.y, 0);
@@ -1333,25 +1348,29 @@
                     }
                 }
 
-                if (currentPowerUp) {
-                    powerUpTimer -= delta;
-                    document.getElementById('powerup-bar').style.width = Math.max(0, (powerUpTimer / 10.0) * 100) + '%';
-                    
-                    if (powerUpTimer <= 0) {
-                        currentPowerUp = null;
-                        document.getElementById('powerup-ui').classList.add('hidden');
-                        document.getElementById('powerup-ui').classList.remove('flex');
-                        playerSneakers.visible = false;
-                        playerJetpack.visible = false;
+                let uiNeedsUpdate = false;
+                for (const type in activePowerUps) {
+                    if (activePowerUps[type] > 0) {
+                        activePowerUps[type] -= delta;
+                        uiNeedsUpdate = true;
+                        if (activePowerUps[type] <= 0) {
+                            delete activePowerUps[type];
+                            if (type === 'sneakers') playerSneakers.visible = false;
+                            if (type === 'jetpack') {
+                                isJetpackFlying = false;
+                                playerJetpack.visible = false;
+                            }
+                        }
                     }
                 }
+                if (uiNeedsUpdate) updatePowerUpUI();
 
                 if (isJetpackFlying) {
                     playerJetpack.children[2].scale.y = 1.0 + Math.random() * 0.5;
                     playerJetpack.children[3].scale.y = 1.0 + Math.random() * 0.5;
                 }
 
-                if (currentPowerUp === 'magnet') {
+                if (activePowerUps['magnet'] > 0) {
                     coinsList.forEach(cObj => {
                         if (!cObj.collected && cObj.mesh.position.z > -80 && cObj.mesh.position.z < 5) {
                             cObj.mesh.position.x += (px - cObj.mesh.position.x) * 0.15;
@@ -1412,12 +1431,10 @@
                     }
                 }
 
-                if (currentPowerUp === 'jetpack') {
-                    isJetpackFlying = true;
+                if (isJetpackFlying) {
                     playerGroup.position.y += (12.0 - playerGroup.position.y) * 0.1; 
                     velocityY = 0;
                 } else {
-                    isJetpackFlying = false;
                     velocityY += GRAVITY;
                     playerGroup.position.y += velocityY;
                 }
@@ -1450,12 +1467,11 @@
                         }, 50);
 
                     } else {
-                        // ★変更: ゲームオーバーになったら、カメラに向かって吹っ飛ぶ演出へ移行
                         gameState = 'crashing';
                         crashTimer = 1.2; 
                         
                         crashVelocityY = 0.6; 
-                        crashVelocityZ = currentFrameSpeed * 2.0 + 0.8; // カメラ(手前)へ飛ぶ
+                        crashVelocityZ = currentFrameSpeed * 2.0 + 0.8; 
                         crashVelocityX = (Math.random() - 0.5) * 1.5; 
                         
                         crashRotationX = (Math.random() - 0.5) * 0.6;
@@ -1488,8 +1504,7 @@
                         
                         if (dx < hitX && dy < hitY && dz < hitZ) {
                             cObj.collected = true;
-                            // ★修正: 2倍コイン効果中は取得コインが2倍になる
-                            sessionCoins += (currentPowerUp === 'double_coin') ? 2 : 1;
+                            sessionCoins += (activePowerUps['double_coin'] > 0) ? 2 : 1;
                             document.getElementById('coin-val').innerText = totalCoins + sessionCoins;
                             scene.remove(cObj.mesh);
                         }
@@ -1522,7 +1537,6 @@
             renderer.render(scene, camera);
         }
 
-        // ★追加: 最初の起動時はタイトル画面から
         initTitle(); 
         animate();
 
@@ -1530,7 +1544,6 @@
         document.getElementById('start-btn').addEventListener('click', resetGame);
         document.getElementById('retry-btn').addEventListener('click', resetGame);
         
-        // HOMEボタンでタイトル画面へ
         document.getElementById('home-btn').addEventListener('click', () => {
             document.getElementById('game-over-screen').classList.add('scale-95', 'opacity-0');
             setTimeout(() => {
@@ -1542,7 +1555,6 @@
         const shopScreen = document.getElementById('shop-screen');
         const goScreen = document.getElementById('game-over-screen');
         
-        // ★追加: タイトル画面からのショップ遷移
         document.getElementById('title-shop-btn').addEventListener('click', () => {
             document.getElementById('title-screen').classList.add('opacity-0', 'pointer-events-none');
             setTimeout(() => {
@@ -1564,7 +1576,6 @@
             shopScreen.classList.add('scale-95', 'opacity-0');
             setTimeout(() => {
                 shopScreen.classList.add('hidden');
-                // ★修正: ゲームオーバー時とタイトル時で戻る先を適切に切り替える
                 if (gameState === 'gameover') {
                     goScreen.classList.remove('hidden');
                     setTimeout(() => goScreen.classList.remove('scale-95', 'opacity-0'), 50);
@@ -1581,9 +1592,9 @@
             grid.innerHTML = ''; 
 
             const boardCard = document.createElement('div');
-            const canAffordBoard = totalCoins >= 3000;
+            const canAffordBoard = totalCoins >= 1000;
             boardCard.className = `p-4 rounded-xl border flex flex-col items-center justify-between h-48 bg-black/60 border-green-500/30`;
-            const boardBtn = `<button onclick="window.buyBoard()" class="mt-auto w-full px-4 py-2 rounded-full font-bold text-sm ${canAffordBoard ? 'bg-yellow-500 text-black hover:bg-yellow-400' : 'bg-gray-600 text-gray-400'}" ${!canAffordBoard?'disabled':''}>BUY: 3000</button>`;
+            const boardBtn = `<button onclick="window.buyBoard()" class="mt-auto w-full px-4 py-2 rounded-full font-bold text-sm ${canAffordBoard ? 'bg-yellow-500 text-black hover:bg-yellow-400' : 'bg-gray-600 text-gray-400'}" ${!canAffordBoard?'disabled':''}>BUY: 1000</button>`;
             
             boardCard.innerHTML = `
                 <div class="w-16 h-16 rounded-lg mb-2 flex items-center justify-center text-4xl bg-green-500/20 border border-green-500/50 shadow-[0_0_15px_rgba(0,255,0,0.2)]">🛹</div>
@@ -1608,9 +1619,19 @@
                 else if (isUnl) btn = `<button onclick="window.equipCostume('${c.id}')" class="mt-auto w-full px-4 py-2 rounded-full bg-cyan-600 text-white font-bold text-sm hover:bg-cyan-500">EQUIP</button>`;
                 else btn = `<button onclick="window.buyCostume('${c.id}')" class="mt-auto w-full px-4 py-2 rounded-full font-bold text-sm ${canAfford ? 'bg-yellow-500 text-black hover:bg-yellow-400' : 'bg-gray-600 text-gray-400'}" ${!canAfford?'disabled':''}>BUY: ${c.price}</button>`;
 
-                let style = c.type === 'gradient' ? `background: linear-gradient(to bottom, #ff007f, #00ffff);` : `background-color: #${c.color.toString(16).padStart(6,'0')};`;
+                let style = '';
+                let icon = '';
+                if (c.type === 'gradient') {
+                    style = `background: linear-gradient(to bottom, #ff007f, #00ffff);`;
+                } else if (c.type === 'custom_model') {
+                    // ★追加: カスタムモデル（プラナリア風）のショップアイコン
+                    style = `background: #a5f3fc; display: flex; justify-content: center; align-items: center; font-size: 2rem;`;
+                    icon = '👾';
+                } else {
+                    style = `background-color: #${c.color.toString(16).padStart(6,'0')};`;
+                }
                 
-                card.innerHTML = `<div class="w-16 h-16 rounded-lg mb-2 shadow-lg border border-white/10" style="${style}"></div><h3 class="text-white font-bold text-sm uppercase text-center mb-2">${c.name}</h3>${btn}`;
+                card.innerHTML = `<div class="w-16 h-16 rounded-lg mb-2 shadow-lg border border-white/10" style="${style}">${icon}</div><h3 class="text-white font-bold text-sm uppercase text-center mb-2">${c.name}</h3>${btn}`;
                 grid.appendChild(card);
             });
         }
@@ -1623,8 +1644,8 @@
         };
         
         window.buyBoard = () => {
-            if (totalCoins >= 3000) {
-                totalCoins -= 3000;
+            if (totalCoins >= 1000) {
+                totalCoins -= 1000;
                 hoverboards++;
                 saveGameData();
                 document.getElementById('board-count').innerText = hoverboards;
